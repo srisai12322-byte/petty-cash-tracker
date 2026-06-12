@@ -1,0 +1,653 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Floatly - Site Petty Cash Tracker</title>
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <!-- Chart.js CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <!-- Lucide Icons CDN -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="app-container">
+    
+    <!-- Sidebar Navigation -->
+    <aside class="sidebar">
+      <div class="sidebar-brand">
+        <div class="brand-logo">
+          <i data-lucide="wallet"></i>
+        </div>
+        <span class="brand-name">Floatly</span>
+      </div>
+
+      <nav class="sidebar-nav">
+        <ul>
+          <li>
+            <a href="#" class="nav-link active" data-tab="dashboard">
+              <i data-lucide="layout-dashboard"></i>
+              <span>Dashboard</span>
+            </a>
+          </li>
+          <li>
+            <a href="#" class="nav-link" data-tab="ledger">
+              <i data-lucide="receipt"></i>
+              <span>Ledger</span>
+            </a>
+          </li>
+          <li>
+            <a href="#" class="nav-link" data-tab="boxes">
+              <i data-lucide="building-2"></i>
+              <span>Project Sites</span>
+            </a>
+          </li>
+          <li>
+            <a href="#" class="nav-link" data-tab="reports">
+              <i data-lucide="pie-chart"></i>
+              <span>Reports</span>
+            </a>
+          </li>
+        </ul>
+      </nav>
+
+      <div class="sidebar-footer">
+        <!-- Theme Toggle & Profile Info -->
+        <div class="footer-actions">
+          <button class="theme-toggle-btn" id="theme-toggle" title="Toggle Dark/Light Mode">
+            <i data-lucide="sun" class="sun-icon"></i>
+            <i data-lucide="moon" class="moon-icon"></i>
+          </button>
+          <div class="user-profile">
+            <div class="user-avatar">MK</div>
+            <div class="user-info">
+              <span class="user-name">Manoj Kumar</span>
+              <span class="user-role">Site Supervisor</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </aside>
+
+    <!-- Main Content Area -->
+    <main class="main-content">
+      
+      <!-- Top Header -->
+      <header class="content-header">
+        <div class="header-left">
+          <h1 id="page-title">Dashboard</h1>
+          <p id="page-subtitle" class="text-secondary">Welcome back, track your site petty cash spendings here.</p>
+        </div>
+        <div class="header-right">
+          <!-- Active Site Selector (Header) -->
+          <div class="box-selector-container">
+            <label for="header-box-select">Project Site:</label>
+            <select id="header-box-select" class="form-select select-sm">
+              <!-- Dynamically populated -->
+            </select>
+          </div>
+
+          <button class="btn btn-primary" id="btn-request-cash">
+            <i data-lucide="plus-circle"></i>
+            <span>Log Expense</span>
+          </button>
+
+          <button class="btn btn-secondary" id="btn-refill-cash">
+            <i data-lucide="plus"></i>
+            <span>Refill Site Fund</span>
+          </button>
+        </div>
+      </header>
+
+      <!-- View Containers -->
+      <div class="content-body">
+        
+        <!-- ================= DASHBOARD TAB ================= -->
+        <section id="tab-dashboard" class="tab-content active-tab">
+          <!-- KPIs Grid -->
+          <div class="kpis-grid">
+            <div class="kpi-card bg-glass">
+              <div class="kpi-icon text-primary">
+                <i data-lucide="banknote"></i>
+              </div>
+              <div class="kpi-data">
+                <span class="kpi-label">Cash on Hand</span>
+                <h3 class="kpi-val" id="kpi-cash-on-hand">₹0.00</h3>
+                <span class="kpi-desc" id="kpi-cash-box-name">CMRU SOET Block</span>
+              </div>
+            </div>
+            
+            <div class="kpi-card bg-glass">
+              <div class="kpi-icon text-success">
+                <i data-lucide="trending-down"></i>
+              </div>
+              <div class="kpi-data">
+                <span class="kpi-label">Disbursed (Month)</span>
+                <h3 class="kpi-val" id="kpi-total-disbursed">₹0.00</h3>
+                <span class="kpi-desc" id="kpi-disbursed-pct">0% of total float</span>
+              </div>
+            </div>
+
+            <div class="kpi-card bg-glass">
+              <div class="kpi-icon text-warning">
+                <i data-lucide="list-todo"></i>
+              </div>
+              <div class="kpi-data">
+                <span class="kpi-label">Total Transactions</span>
+                <h3 class="kpi-val" id="kpi-pending-count">0</h3>
+                <span class="kpi-desc" id="kpi-pending-value">Ledger Entries Count</span>
+              </div>
+            </div>
+
+            <div class="kpi-card bg-glass" id="kpi-box-status-card">
+              <div class="kpi-icon text-danger" id="kpi-status-icon">
+                <i data-lucide="activity"></i>
+              </div>
+              <div class="kpi-data">
+                <span class="kpi-label">Status</span>
+                <h3 class="kpi-val" id="kpi-status-state">Healthy</h3>
+                <span class="kpi-desc" id="kpi-status-desc">Balance above threshold</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Dashboard Charts & Quick Info -->
+          <div class="dashboard-details-grid">
+            
+            <!-- Left Side: Site Float Progress & Breakdown -->
+            <div class="panel bg-glass flex-column">
+              <div class="panel-header">
+                <h3>Site Float & Capacity</h3>
+                <span class="text-secondary font-sm">Refill progress and limits</span>
+              </div>
+              <div class="panel-body">
+                <div class="box-progress-container">
+                  <div class="progress-info">
+                    <span class="progress-title">Available Site Float</span>
+                    <span class="progress-value" id="dashboard-progress-ratio">₹0 / ₹0</span>
+                  </div>
+                  <div class="progress-bar-bg">
+                    <div class="progress-bar-fill" id="dashboard-progress-bar" style="width: 0%;"></div>
+                  </div>
+                  <div class="progress-indicators">
+                    <span class="progress-warning" id="dashboard-warning-alert" style="display: none;">
+                      <i data-lucide="alert-triangle"></i> Low Cash Alert (Below Threshold)
+                    </span>
+                    <span class="progress-safe" id="dashboard-safe-alert">
+                      <i data-lucide="shield-check"></i> Capital level secure
+                    </span>
+                  </div>
+                </div>
+
+                <div class="recent-quick-stats">
+                  <div class="quick-stat-item">
+                    <span class="label">Initial Float</span>
+                    <span class="value" id="dashboard-initial-float">₹0.00</span>
+                  </div>
+                  <div class="quick-stat-item">
+                    <span class="label">Refill Threshold</span>
+                    <span class="value text-warning" id="dashboard-threshold-float">₹0.00</span>
+                  </div>
+                  <div class="quick-stat-item">
+                    <span class="label">Site Custodian</span>
+                    <span class="value" id="dashboard-custodian-name">Custodian</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Right Side: Chart breakdown -->
+            <div class="panel bg-glass">
+              <div class="panel-header">
+                <h3>Expenses by Category</h3>
+                <span class="text-secondary font-sm">Distribution of approved expenditures</span>
+              </div>
+              <div class="panel-body chart-panel-body">
+                <div class="chart-wrapper">
+                  <canvas id="categoryChart"></canvas>
+                  <div class="chart-empty-state" id="category-chart-empty" style="display: none;">
+                    <i data-lucide="bar-chart-3"></i>
+                    <span>No approved expenses recorded yet.</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+            
+          </div>
+
+          <!-- Bottom: Recent Transactions -->
+          <div class="panel bg-glass table-panel">
+            <div class="panel-header header-inline">
+              <div>
+                <h3>Recent Transactions</h3>
+                <span class="text-secondary font-sm">Latest activities across this site</span>
+              </div>
+              <button class="btn btn-tertiary" id="btn-view-all-ledger">
+                <span>View Full Ledger</span>
+                <i data-lucide="arrow-right"></i>
+              </button>
+            </div>
+            <div class="panel-body">
+              <div class="table-responsive">
+                <table class="data-table" id="dashboard-recent-table">
+                  <thead>
+                    <tr>
+                      <th>Date</th>
+                      <th>Description</th>
+                      <th>Category</th>
+                      <th>Recipient</th>
+                      <th>Amount</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <!-- Populated dynamically -->
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ================= LEDGER TAB ================= -->
+        <section id="tab-ledger" class="tab-content">
+          <div class="panel bg-glass">
+            
+            <!-- Filter Actions Bar -->
+            <div class="ledger-filters">
+              <div class="filter-group-main">
+                <div class="search-input-wrapper">
+                  <i data-lucide="search"></i>
+                  <input type="text" id="ledger-search" placeholder="Search description, recipient...">
+                </div>
+                
+                <div class="select-wrapper">
+                  <select id="ledger-filter-box" class="form-select">
+                    <option value="all">All Project Sites</option>
+                    <!-- Dynamically populated -->
+                  </select>
+                </div>
+
+                <div class="select-wrapper">
+                  <select id="ledger-filter-category" class="form-select">
+                    <option value="all">All Categories</option>
+                    <option value="Staff Advances">Staff Advances</option>
+                    <option value="Fuel & Petrol">Fuel & Petrol</option>
+                    <option value="Labor & Wages">Labor & Wages</option>
+                    <option value="Material & Construction Supplies">Material & Construction Supplies</option>
+                    <option value="Food & Snacks">Food & Snacks</option>
+                    <option value="Repairs & Maintenance">Repairs & Maintenance</option>
+                    <option value="Miscellaneous">Miscellaneous</option>
+                  </select>
+                </div>
+              </div>
+
+              <div class="filter-group-actions">
+                <button class="btn btn-secondary" id="btn-export-csv">
+                  <i data-lucide="download"></i>
+                  <span>Export CSV</span>
+                </button>
+              </div>
+            </div>
+
+            <!-- Ledger Table -->
+            <div class="panel-body">
+              <div class="table-responsive">
+                <table class="data-table" id="ledger-full-table">
+                  <thead>
+                    <tr>
+                      <th>Transaction ID</th>
+                      <th>Date</th>
+                      <th>Description</th>
+                      <th>Project Site</th>
+                      <th>Category</th>
+                      <th>Recipient</th>
+                      <th>Amount</th>
+                      <th>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <!-- Dynamically populated -->
+                  </tbody>
+                </table>
+              </div>
+              <div class="empty-table-state" id="ledger-empty-state" style="display: none;">
+                <i data-lucide="inbox"></i>
+                <p>No transactions found matching your criteria.</p>
+              </div>
+            </div>
+            
+          </div>
+        </section>
+
+        <!-- ================= CASH BOXES TAB ================= -->
+        <section id="tab-boxes" class="tab-content">
+          <div class="boxes-header-bar">
+            <h3>Active Project Sites</h3>
+            <button class="btn btn-primary" id="btn-create-box-trigger">
+              <i data-lucide="folder-plus"></i>
+              <span>Create Project Site</span>
+            </button>
+          </div>
+
+          <!-- Cash Boxes Grid -->
+          <div class="boxes-grid" id="boxes-grid-container">
+            <!-- Dynamically populated box cards -->
+          </div>
+        </section>
+
+        <!-- ================= REPORTS TAB ================= -->
+        <section id="tab-reports" class="tab-content">
+          <div class="reports-grid">
+            
+            <!-- Left Panel: Summary Stat Cards and Filters -->
+            <div class="panel bg-glass flex-column report-filter-panel">
+              <div class="panel-header">
+                <h3>Report Configuration</h3>
+                <span class="text-secondary font-sm">Generate metrics and summaries</span>
+              </div>
+              <div class="panel-body">
+                <form id="report-filter-form" class="vertical-form">
+                  <div class="form-group">
+                    <label for="report-box-select">Select Project Site</label>
+                    <select id="report-box-select" class="form-select">
+                      <option value="all">All Project Sites</option>
+                      <!-- Dynamically populated -->
+                    </select>
+                  </div>
+                  
+                  <div class="form-group">
+                    <label for="report-time-select">Time Horizon</label>
+                    <select id="report-time-select" class="form-select">
+                      <option value="all">All Time</option>
+                      <option value="30">Last 30 Days</option>
+                      <option value="90">Last 90 Days</option>
+                      <option value="this-month">This Calendar Month</option>
+                    </select>
+                  </div>
+                </form>
+
+                <hr class="panel-divider">
+
+                <div class="report-stats">
+                  <div class="report-stat-row">
+                    <span class="label">Total Float Managed</span>
+                    <span class="value" id="report-total-float">₹0.00</span>
+                  </div>
+                  <div class="report-stat-row">
+                    <span class="label">Total Approved Spend</span>
+                    <span class="value text-danger" id="report-total-spend">₹0.00</span>
+                  </div>
+                  <div class="report-stat-row">
+                    <span class="label">Average Approved Claim</span>
+                    <span class="value" id="report-avg-claim">₹0.00</span>
+                  </div>
+                  <div class="report-stat-row">
+                    <span class="label">Refill Transactions</span>
+                    <span class="value text-success" id="report-refill-count">0</span>
+                  </div>
+                  <div class="report-stat-row">
+                    <span class="label">Refilled Amount</span>
+                    <span class="value text-success" id="report-refilled-total">₹0.00</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Right Panel: Visual Charts and Breakdown -->
+            <div class="panel bg-glass flex-column report-charts-panel">
+              <div class="panel-header">
+                <h3>Spending Trend Analysis</h3>
+                <span class="text-secondary font-sm">Monthly expenditure progression</span>
+              </div>
+              <div class="panel-body chart-panel-body">
+                <div class="chart-wrapper">
+                  <canvas id="trendChart"></canvas>
+                  <div class="chart-empty-state" id="trend-chart-empty" style="display: none;">
+                    <i data-lucide="bar-chart-4"></i>
+                    <span>Not enough data to display trend analysis.</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Full Width Panel: Category detailed list -->
+            <div class="panel bg-glass report-categories-panel">
+              <div class="panel-header">
+                <h3>Category Spend Breakdown</h3>
+                <span class="text-secondary font-sm">Detailed category expenditure audit</span>
+              </div>
+              <div class="panel-body">
+                <div class="category-breakdown-list" id="report-category-list">
+                  <!-- Dynamically populated progress list -->
+                </div>
+              </div>
+            </div>
+            
+          </div>
+        </section>
+        
+      </div>
+    </main>
+
+  </div>
+
+  <!-- ================= MODALS CONTAINER ================= -->
+
+  <!-- Modal: Log Expense / Request Cash -->
+  <div class="modal-overlay" id="modal-request-expense">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3>Log Site Petty Cash Expense</h3>
+        <button class="modal-close" data-close-modal><i data-lucide="x"></i></button>
+      </div>
+      <form id="form-log-expense">
+        <div class="modal-body">
+          <div class="form-row">
+            <div class="form-group col-6">
+              <label for="expense-box">Select Project Site <span class="required">*</span></label>
+              <select id="expense-box" class="form-select" required>
+                <!-- Dynamically populated -->
+              </select>
+            </div>
+            <div class="form-group col-6">
+              <label for="expense-amount">Amount (₹) <span class="required">*</span></label>
+              <div class="input-prefix-wrapper">
+                <span class="input-prefix">₹</span>
+                <input type="number" id="expense-amount" step="0.01" min="0.01" placeholder="0.00" class="form-control" required>
+              </div>
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group col-6">
+              <label for="expense-category">Category <span class="required">*</span></label>
+              <select id="expense-category" class="form-select" required>
+                <option value="" disabled selected>Select category...</option>
+                <option value="Staff Advances">Staff Advances</option>
+                <option value="Fuel & Petrol">Fuel & Petrol</option>
+                <option value="Labor & Wages">Labor & Wages</option>
+                <option value="Material & Construction Supplies">Material & Construction Supplies</option>
+                <option value="Food & Snacks">Food & Snacks</option>
+                <option value="Repairs & Maintenance">Repairs & Maintenance</option>
+                <option value="Miscellaneous">Miscellaneous</option>
+              </select>
+            </div>
+            <div class="form-group col-6">
+              <label for="expense-recipient">Recipient / Paid To <span class="required">*</span></label>
+              <input type="text" id="expense-recipient" placeholder="e.g. Ayappa, Petrol Bunk, Labor Contractor" class="form-control" required>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label for="expense-desc">Description <span class="required">*</span></label>
+            <input type="text" id="expense-desc" placeholder="What was this cash used for?" class="form-control" required>
+          </div>
+
+          <div class="form-group">
+            <label for="expense-date">Date <span class="required">*</span></label>
+            <input type="date" id="expense-date" class="form-control" required>
+          </div>
+          
+          <div class="alert alert-danger" id="expense-form-error" style="display: none;">
+            <i data-lucide="alert-circle"></i>
+            <span class="error-msg"></span>
+          </div>
+
+          <div class="alert alert-warning" id="expense-form-warning" style="display: none;">
+            <i data-lucide="alert-triangle"></i>
+            <span>Warning: This amount exceeds the site alert threshold!</span>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-close-modal>Cancel</button>
+          <button type="submit" class="btn btn-primary">Log Expense</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal: Refill Box -->
+  <div class="modal-overlay" id="modal-refill-box">
+    <div class="modal-card modal-sm">
+      <div class="modal-header">
+        <h3>Refill Site Petty Cash</h3>
+        <button class="modal-close" data-close-modal><i data-lucide="x"></i></button>
+      </div>
+      <form id="form-refill-box">
+        <div class="modal-body">
+          <p class="text-secondary font-sm margin-bottom-md">Refill funds into the active project site. This will increase the current cash on hand.</p>
+          
+          <div class="form-group">
+            <label for="refill-box-name">Project Site</label>
+            <input type="text" id="refill-box-name" class="form-control" readonly>
+          </div>
+
+          <div class="form-group">
+            <label for="refill-amount">Refill Amount (₹) <span class="required">*</span></label>
+            <div class="input-prefix-wrapper">
+              <span class="input-prefix">₹</span>
+              <input type="number" id="refill-amount" step="0.01" min="0.01" class="form-control" placeholder="0.00" required>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label for="refill-source">Funding Source <span class="required">*</span></label>
+            <select id="refill-source" class="form-select" required>
+              <option value="Corporate Bank Transfer">Corporate Bank Transfer</option>
+              <option value="Main Safe Vault Withdrawal">Main Safe Vault Withdrawal</option>
+              <option value="Direct Cash Deposit">Direct Cash Deposit</option>
+              <option value="Other">Other (Specify in notes)</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label for="refill-notes">Notes / Reference (Optional)</label>
+            <input type="text" id="refill-notes" placeholder="Refill transaction reference number..." class="form-control">
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-close-modal>Cancel</button>
+          <button type="submit" class="btn btn-success">Refill Cash</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal: Transfer Cash -->
+  <div class="modal-overlay" id="modal-transfer-cash">
+    <div class="modal-card modal-sm">
+      <div class="modal-header">
+        <h3>Transfer Cash Between Sites</h3>
+        <button class="modal-close" data-close-modal><i data-lucide="x"></i></button>
+      </div>
+      <form id="form-transfer-cash">
+        <div class="modal-body">
+          <p class="text-secondary font-sm margin-bottom-md">Transfer cash directly from one project site to another. Requires sufficient balance in the source site.</p>
+
+          <div class="form-group">
+            <label for="transfer-source-box">Source Project Site <span class="required">*</span></label>
+            <select id="transfer-source-box" class="form-select" required>
+              <!-- Dynamically populated -->
+            </select>
+            <span class="form-hint" id="transfer-source-balance">Available: ₹0.00</span>
+          </div>
+
+          <div class="form-group">
+            <label for="transfer-target-box">Target Project Site <span class="required">*</span></label>
+            <select id="transfer-target-box" class="form-select" required>
+              <!-- Dynamically populated -->
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label for="transfer-amount">Amount (₹) <span class="required">*</span></label>
+            <div class="input-prefix-wrapper">
+              <span class="input-prefix">₹</span>
+              <input type="number" id="transfer-amount" step="0.01" min="0.01" class="form-control" placeholder="0.00" required>
+            </div>
+          </div>
+          
+          <div class="alert alert-danger" id="transfer-form-error" style="display: none;">
+            <i data-lucide="alert-circle"></i>
+            <span class="error-msg"></span>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-close-modal>Cancel</button>
+          <button type="submit" class="btn btn-primary">Transfer Funds</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal: Create New Project Site -->
+  <div class="modal-overlay" id="modal-create-box">
+    <div class="modal-card modal-sm">
+      <div class="modal-header">
+        <h3>Create New Project Site</h3>
+        <button class="modal-close" data-close-modal><i data-lucide="x"></i></button>
+      </div>
+      <form id="form-create-box">
+        <div class="modal-body">
+          <div class="form-group">
+            <label for="new-box-name">Project Site Name <span class="required">*</span></label>
+            <input type="text" id="new-box-name" placeholder="e.g. CMRU Hostel Block, Campus Extension Site" class="form-control" required>
+          </div>
+
+          <div class="form-group">
+            <label for="new-box-custodian">Site Custodian Name <span class="required">*</span></label>
+            <input type="text" id="new-box-custodian" placeholder="Who manages this site petty cash?" class="form-control" required>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group col-6">
+              <label for="new-box-initial">Initial Float (₹) <span class="required">*</span></label>
+              <div class="input-prefix-wrapper">
+                <span class="input-prefix">₹</span>
+                <input type="number" id="new-box-initial" step="1000" min="5000" placeholder="100000.00" class="form-control" required>
+              </div>
+            </div>
+            <div class="form-group col-6">
+              <label for="new-box-alert">Alert Threshold (₹) <span class="required">*</span></label>
+              <div class="input-prefix-wrapper">
+                <span class="input-prefix">₹</span>
+                <input type="number" id="new-box-alert" step="500" min="1000" placeholder="10000.00" class="form-control" required>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-close-modal>Cancel</button>
+          <button type="submit" class="btn btn-primary">Create Site</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
