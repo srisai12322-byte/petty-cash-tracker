@@ -153,13 +153,78 @@ document.addEventListener('DOMContentLoaded', () => {
   };
 
   // --------------------------------------------------------------------------
-  // B. State Persistence & Initialization (v3 keys)
+  // B. State Persistence & Initialization (Dual Mode: Local vs Cloud Sheets)
   // --------------------------------------------------------------------------
+  // PASTE YOUR GOOGLE APPS SCRIPT WEB APP URL HERE AFTER DEPLOYMENT:
+  // (e.g. "https://script.google.com/macros/s/.../exec")
+  // Leave it blank ("") to use your browser's local storage database instead.
+  const API_URL = "https://script.google.com/macros/s/AKfycbyDWMQ20CvrNba7NjOpTK9ICHSWFnSxWx-MARG5K2iyMr-ZoO8honSx1Mj9yCwgblIn3Q/exec"; 
+
+  function isAPIMode() {
+    return API_URL && API_URL !== "YOUR_APPS_SCRIPT_API_URL_HERE";
+  }
+
+  function showLoading(msg) {
+    const loader = document.getElementById('loading-overlay');
+    if (loader) {
+      document.getElementById('loading-text-msg').textContent = msg || "Connecting to Cloud Sheets...";
+      loader.classList.add('loading-active');
+    }
+  }
+
+  function hideLoading() {
+    const loader = document.getElementById('loading-overlay');
+    if (loader) {
+      loader.classList.remove('loading-active');
+    }
+  }
+
   function loadState() {
+    const savedTheme = localStorage.getItem('floatly_theme') || 'light';
+    document.documentElement.setAttribute('data-theme', savedTheme);
+
+    const savedBoxId = localStorage.getItem('floatly_current_box_id');
+
+    if (isAPIMode()) {
+      showLoading("Connecting to Google Sheets...");
+      fetch(`${API_URL}?action=read`)
+        .then(res => {
+          if (!res.ok) throw new Error("HTTP error " + res.status);
+          return res.json();
+        })
+        .then(res => {
+          if (res.success) {
+            state.boxes = res.data.sites;
+            state.transactions = res.data.transactions;
+            
+            if (savedBoxId && state.boxes.some(b => b.id === savedBoxId)) {
+              state.currentBoxId = savedBoxId;
+            } else if (state.boxes.length > 0) {
+              state.currentBoxId = state.boxes[0].id;
+            }
+            
+            renderAll();
+            renderCharts();
+          } else {
+            throw new Error(res.error);
+          }
+          hideLoading();
+        })
+        .catch(err => {
+          hideLoading();
+          alert(`Cloud connection failed: ${err.message}.\n\nFalling back to Local Storage mode.`);
+          loadLocalStorageState(savedBoxId);
+          renderAll();
+          renderCharts();
+        });
+    } else {
+      loadLocalStorageState(savedBoxId);
+    }
+  }
+
+  function loadLocalStorageState(savedBoxId) {
     const savedBoxes = localStorage.getItem('floatly_site_boxes_v3');
     const savedTransactions = localStorage.getItem('floatly_site_transactions_v3');
-    const savedBoxId = localStorage.getItem('floatly_current_box_id');
-    const savedTheme = localStorage.getItem('floatly_theme') || 'light';
 
     if (savedBoxes) {
       state.boxes = JSON.parse(savedBoxes);
@@ -180,14 +245,51 @@ document.addEventListener('DOMContentLoaded', () => {
     } else if (state.boxes.length > 0) {
       state.currentBoxId = state.boxes[0].id;
     }
-
-    document.documentElement.setAttribute('data-theme', savedTheme);
   }
 
   function saveState() {
-    localStorage.setItem('floatly_site_boxes_v3', JSON.stringify(state.boxes));
-    localStorage.setItem('floatly_site_transactions_v3', JSON.stringify(state.transactions));
     localStorage.setItem('floatly_current_box_id', state.currentBoxId);
+    if (!isAPIMode()) {
+      localStorage.setItem('floatly_site_boxes_v3', JSON.stringify(state.boxes));
+      localStorage.setItem('floatly_site_transactions_v3', JSON.stringify(state.transactions));
+    }
+  }
+
+  function syncWithCloudAPI(payload, successMsg) {
+    showLoading("Saving changes to Google Sheet...");
+    
+    fetch(API_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'text/plain'
+      },
+      body: JSON.stringify(payload)
+    })
+    .then(res => {
+      if (!res.ok) throw new Error("HTTP error " + res.status);
+      return res.json();
+    })
+    .then(res => {
+      if (res.success) {
+        state.boxes = res.data.sites;
+        state.transactions = res.data.transactions;
+        
+        if (!state.boxes.some(b => b.id === state.currentBoxId) && state.boxes.length > 0) {
+          state.currentBoxId = state.boxes[0].id;
+        }
+        
+        renderAll();
+        renderCharts();
+        hideLoading();
+        if (successMsg) alert(successMsg);
+      } else {
+        throw new Error(res.error);
+      }
+    })
+    .catch(err => {
+      hideLoading();
+      alert("Failed to sync changes with Google Sheets: " + err.message);
+    });
   }
 
   // --------------------------------------------------------------------------
@@ -541,49 +643,48 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Deletion logic (Correction Utility)
   function deleteTransaction(transId) {
-    const index = state.transactions.findIndex(t => t.id === transId);
-    if (index === -1) return;
+    if (isAPIMode()) {
+      syncWithCloudAPI({
+        action: "deleteTransaction",
+        transId: transId
+      }, `Transaction ${transId} deleted from Google Sheet. Site balances successfully restored.`);
+    } else {
+      const index = state.transactions.findIndex(t => t.id === transId);
+      if (index === -1) return;
 
-    const t = state.transactions[index];
-    
-    // Check if it is a Transfer transaction
-    // Transfers are logged as two entries: TXFR-XXXX-OUT and TXFR-XXXX-IN
-    if (t.id.includes('TXFR-')) {
-      const baseId = t.id.replace(/-OUT|-IN/, '');
-      const outId = `${baseId}-OUT`;
-      const inId = `${baseId}-IN`;
+      const t = state.transactions[index];
+      
+      // Check if it is a Transfer transaction
+      if (t.id.includes('TXFR-')) {
+        const baseId = t.id.replace(/-OUT|-IN/, '');
+        const outId = `${baseId}-OUT`;
+        const inId = `${baseId}-IN`;
 
-      const outTrans = state.transactions.find(item => item.id === outId);
-      const inTrans = state.transactions.find(item => item.id === inId);
+        const outTrans = state.transactions.find(item => item.id === outId);
+        const inTrans = state.transactions.find(item => item.id === inId);
 
-      if (outTrans) {
-        // Reverse OUT: Add cash back to source
-        updateBoxFloat(outTrans.boxId, outTrans.amount, true);
+        if (outTrans) {
+          updateBoxFloat(outTrans.boxId, outTrans.amount, true);
+        }
+        if (inTrans) {
+          updateBoxFloat(inTrans.boxId, inTrans.amount, false);
+        }
+
+        state.transactions = state.transactions.filter(item => item.id !== outId && item.id !== inId);
+      } 
+      else if (t.category === 'Refill Funds') {
+        updateBoxFloat(t.boxId, t.amount, false);
+        state.transactions.splice(index, 1);
+      } 
+      else {
+        updateBoxFloat(t.boxId, t.amount, true);
+        state.transactions.splice(index, 1);
       }
-      if (inTrans) {
-        // Reverse IN: Deduct cash from target
-        updateBoxFloat(inTrans.boxId, inTrans.amount, false);
-      }
 
-      // Remove both from transactions
-      state.transactions = state.transactions.filter(item => item.id !== outId && item.id !== inId);
-    } 
-    // If it is a normal Refill
-    else if (t.category === 'Refill Funds') {
-      // Reverse Refill: Subtract cash
-      updateBoxFloat(t.boxId, t.amount, false);
-      state.transactions.splice(index, 1);
-    } 
-    // If it is a normal Expense
-    else {
-      // Reverse Expense: Add cash back
-      updateBoxFloat(t.boxId, t.amount, true);
-      state.transactions.splice(index, 1);
+      saveState();
+      renderAll();
+      alert(`Transaction ${transId} deleted. Site balances successfully restored.`);
     }
-
-    saveState();
-    renderAll();
-    alert(`Transaction ${transId} deleted. Site balances successfully restored.`);
   }
 
   // Renders the cards in the Cash Boxes grid (Project Sites Tab)
@@ -1036,13 +1137,21 @@ document.addEventListener('DOMContentLoaded', () => {
       amount: amount
     };
 
-    state.transactions.push(newTrans);
-    updateBoxFloat(boxId, amount, false); // deduct balance
+    if (isAPIMode()) {
+      syncWithCloudAPI({
+        action: "logExpense",
+        expense: newTrans
+      }, `Expense logged successfully. ${formatCurrency(amount)} has been deducted from ${box.name} in Google Sheet.`);
+      closeModal('modal-request-expense');
+    } else {
+      state.transactions.push(newTrans);
+      updateBoxFloat(boxId, amount, false); // deduct balance
 
-    saveState();
-    renderAll();
-    closeModal('modal-request-expense');
-    alert(`Expense logged successfully. ${formatCurrency(amount)} has been deducted from ${box.name}.`);
+      saveState();
+      renderAll();
+      closeModal('modal-request-expense');
+      alert(`Expense logged successfully. ${formatCurrency(amount)} has been deducted from ${box.name}.`);
+    }
   });
 
   function showExpenseError(msg) {
@@ -1074,13 +1183,21 @@ document.addEventListener('DOMContentLoaded', () => {
       amount: amount
     };
 
-    state.transactions.push(newRefill);
-    updateBoxFloat(boxId, amount, true); // add cash
-    
-    saveState();
-    renderAll();
-    closeModal('modal-refill-box');
-    alert(`Refilled ${formatCurrency(amount)} into ${box.name}.`);
+    if (isAPIMode()) {
+      syncWithCloudAPI({
+        action: "refillSite",
+        refill: newRefill
+      }, `Refilled ${formatCurrency(amount)} into ${box.name} in Google Sheet.`);
+      closeModal('modal-refill-box');
+    } else {
+      state.transactions.push(newRefill);
+      updateBoxFloat(boxId, amount, true); // add cash
+      
+      saveState();
+      renderAll();
+      closeModal('modal-refill-box');
+      alert(`Refilled ${formatCurrency(amount)} into ${box.name}.`);
+    }
   });
 
   // Form Submit: Transfer Cash
@@ -1135,16 +1252,24 @@ document.addEventListener('DOMContentLoaded', () => {
       amount: amount
     };
 
-    state.transactions.push(outTrans);
-    state.transactions.push(inTrans);
+    if (isAPIMode()) {
+      syncWithCloudAPI({
+        action: "transferFunds",
+        transfer: { outTrans: outTrans, inTrans: inTrans }
+      }, `Transferred ${formatCurrency(amount)} from ${srcBox.name} to ${destBox.name} in Google Sheet.`);
+      closeModal('modal-transfer-cash');
+    } else {
+      state.transactions.push(outTrans);
+      state.transactions.push(inTrans);
 
-    updateBoxFloat(srcId, amount, false); // deduct
-    updateBoxFloat(destId, amount, true); // add
+      updateBoxFloat(srcId, amount, false); // deduct
+      updateBoxFloat(destId, amount, true); // add
 
-    saveState();
-    renderAll();
-    closeModal('modal-transfer-cash');
-    alert(`Transferred ${formatCurrency(amount)} from ${srcBox.name} to ${destBox.name}.`);
+      saveState();
+      renderAll();
+      closeModal('modal-transfer-cash');
+      alert(`Transferred ${formatCurrency(amount)} from ${srcBox.name} to ${destBox.name}.`);
+    }
   });
 
   // Form Submit: Create New Project Site
@@ -1168,9 +1293,6 @@ document.addEventListener('DOMContentLoaded', () => {
       status: "healthy"
     };
 
-    state.boxes.push(newBox);
-    state.currentBoxId = newId; // switch to newly created site
-    
     const creationRefill = {
       id: generateUniqueId('REFILL'),
       date: new Date().toISOString().split('T')[0],
@@ -1180,12 +1302,26 @@ document.addEventListener('DOMContentLoaded', () => {
       recipient: "Corporate HQ",
       amount: initial
     };
-    state.transactions.push(creationRefill);
 
-    saveState();
-    renderAll();
-    closeModal('modal-create-box');
-    alert(`New Project Site "${name}" created successfully with initial float of ${formatCurrency(initial)}.`);
+    if (isAPIMode()) {
+      syncWithCloudAPI({
+        action: "createSite",
+        site: newBox,
+        initialRefill: creationRefill
+      }, `New Project Site "${name}" registered in Google Sheet with initial float of ${formatCurrency(initial)}.`);
+      state.currentBoxId = newId;
+      saveState();
+      closeModal('modal-create-box');
+    } else {
+      state.boxes.push(newBox);
+      state.currentBoxId = newId; // switch to newly created site
+      state.transactions.push(creationRefill);
+
+      saveState();
+      renderAll();
+      closeModal('modal-create-box');
+      alert(`New Project Site "${name}" created successfully with initial float of ${formatCurrency(initial)}.`);
+    }
   });
 
   // --------------------------------------------------------------------------

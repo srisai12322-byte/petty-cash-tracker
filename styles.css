@@ -2112,3 +2112,76 @@ body:not(.custodian-active) .custodian-only {
     justify-content: flex-start;
   }
 }
+
+/* ==========================================================================
+   14. Live Sync Loading Overlay
+   ========================================================================== */
+.loading-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background-color: rgba(255, 255, 255, 0.8);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  z-index: 9999;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  transition: opacity 0.3s ease;
+}
+
+[data-theme="light"] .loading-overlay {
+  background-color: rgba(255, 255, 255, 0.85);
+}
+
+[data-theme="dark"] .loading-overlay {
+  background-color: rgba(11, 15, 25, 0.85);
+}
+
+.loading-overlay.loading-active {
+  display: flex;
+}
+
+.spinner-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1.25rem;
+  text-align: center;
+}
+
+.spinner-glow {
+  position: relative;
+  background-color: var(--bg-panel);
+  border: 1px solid var(--border-color);
+  padding: 1.25rem;
+  border-radius: 50%;
+  box-shadow: var(--shadow-lg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 64px;
+  height: 64px;
+}
+
+.spin-icon {
+  width: 28px;
+  height: 28px;
+  color: var(--color-primary);
+  animation: spin 1.2s linear infinite;
+}
+
+.loading-text {
+  font-family: var(--font-display);
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  letter-spacing: -0.01em;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
